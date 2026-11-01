@@ -1,0 +1,14 @@
+.git
+.github
+.agents
+.claude
+.cursor
+.husky
+.vscode
+.zed
+docs
+**/node_modules
+**/dist
+**/build
+**/.svelte-kit
+.env*
