@@ -1,0 +1,39 @@
+name: Deploy
+
+# On a push to main (or by hand from the Actions tab): SSH to vps02 with a key that can
+# only run `deploy-project city-os` there (set up by the infrastructure repo,
+# playbooks/vps02-projects.yml):
+#   secret   VPS02_DEPLOY_KEY   private key for that restricted login
+#   variable VPS02_HOST         vps02.yob-yob.com
+#   variable VPS02_KNOWN_HOSTS  vps02's SSH host key, so the connection is verified
+# The server builds the images, runs pending migrations, then swaps the containers.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps02
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Deploy to vps02
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS02_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ vars.VPS02_KNOWN_HOSTS }}
+          HOST: ${{ vars.VPS02_HOST }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "root@$HOST" "deploy $COMMIT"
