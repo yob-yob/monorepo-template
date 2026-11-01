@@ -1,17 +1,16 @@
-# City OS demo on vps02, as a Docker Compose stack.
+# City OS on its own LXC on homelab01, as a Docker Compose stack.
 #
-# Deployed by .github/workflows/deploy.yml: on a push to main the action SSHes to vps02,
-# where /usr/local/bin/deploy-project checks out the commit in /root/projects/city-os and
-# runs `docker compose up --detach --build --wait`.
+# Deployed by .github/workflows/deploy.yml: on a push to main the action SSHes to the LXC
+# (jumping through vps03), where /usr/local/bin/deploy-project checks out the commit in
+# /root/projects/city-os and runs `docker compose up --detach --build --wait`.
 # The .env next to this file is written by Ansible from the infrastructure repo's vault
-# (playbooks/vps02-projects.yml) and is never committed.
+# (playbooks/homelab-apps.yml) and is never committed.
 #
-# Published only on vps02's NetBird address (BIND_ADDR); Caddy on vps03 serves the public
-# names and proxies over the mesh:
-#   city-os.demo.yob-yob.com         -> frontend
-#   api.city-os.demo.yob-yob.com     -> backend
-#   rustfs-city-os.demo.yob-yob.com  -> rustfs S3 API (browsers use presigned URLs),
-#                                       console under /rustfs (mesh only)
+# Published only on the LXC's LAN address (BIND_ADDR); Caddy on vps03 serves the public
+# names and proxies over the NetBird route:
+#   city-os.yob-yob.com       -> frontend
+#   api.city-os.yob-yob.com   -> backend
+# Uploads go to the shared S3 at s3.yob-yob.com (S3_* in .env), not to this stack.
 name: city-os
 
 services:
@@ -101,25 +100,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  rustfs:
-    image: rustfs/rustfs:1.0.4
-    command: ["/data"]
-    environment:
-      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
-      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
-      RUSTFS_ADDRESS: 0.0.0.0:9000
-      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
-      RUSTFS_CONSOLE_ENABLE: "true"
-      RUSTFS_CORS_ALLOWED_ORIGINS: ${ORIGIN}
-      RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: ${ORIGIN}
-    volumes:
-      - rustfs-data:/data
-    ports:
-      - "${BIND_ADDR:-127.0.0.1}:${S3_PORT:-9000}:9000"
-      - "${BIND_ADDR:-127.0.0.1}:${S3_CONSOLE_PORT:-9001}:9001"
-    restart: unless-stopped
-
 volumes:
   postgres-data:
   redis-data:
-  rustfs-data:
